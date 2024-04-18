@@ -33,3 +33,10 @@ Population, population density, median age, life expectancy, percentage of the p
 It is important that we remove the cases that have an N/A value for one of these variables, because these are the variables we are most likely to use in our models.  At the same time, we need to make sure that we don't include too many variables because we don't want to reduce our number of cases too far to the point where our data frame is too small.  
 
 By removing the cases that had an N/A in the above columns, we went from 244 cases to 124 cases.  To ensure that we still have a representative distribution of countries, I wanted to compare to the distribution of some of the variables between the original and cleaned data frames.
+
+```{r}
+covidData %>% count(continent)
+covidData2 %>% count(continent)
+```
+
+The cleaned data frame still contains a reasonable distribution of countries among the different continents.  Africa, Europe and Asia remain the most represented continents although there are still cases in every group.  Oceania going from 23 to 5 cases is a sizeable jump, however these are the countries likely to be the outliers in the data anyway.  We will now check some other distributions among the two data sets.
