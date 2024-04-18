@@ -40,3 +40,10 @@ covidData2 %>% count(continent)
 ```
 
 The cleaned data frame still contains a reasonable distribution of countries among the different continents.  Africa, Europe and Asia remain the most represented continents although there are still cases in every group.  Oceania going from 23 to 5 cases is a sizeable jump, however these are the countries likely to be the outliers in the data anyway.  We will now check some other distributions among the two data sets.
+
+```{r}
+hist(covidData$life_expectancy, data = covidData)
+hist(covidData2$life_expectancy, data = covidData2)
+```
+
+Here are the distributions for life expectancy for the two data frames.  Both distributions are generally skewed left and peak at the 75-80 category.  There is a bit of variation in the cleaned data set with the 60-65 range being high by comparison, but overall these distributions are similar enough.
