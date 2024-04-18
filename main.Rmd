@@ -59,6 +59,17 @@ hist(covidData$pct_over_65, data = covidData)
 hist(covidData2$pct_over_65, data = covidData2)
 ```
 
-Here are the distributions of some of the other variables we deemed to be relevant.  Again, the distributions appear to be similar between the two data frames. 
+Here are the distributions of some of the other variables we deemed to be relevant.  Again, the distributions appear to be similar between the two data frames.  Based on this information, we will move ahead with the cleaned data set. 
+
+```{r}
+head(covidData)
+head(covidData2)
+```
+
+Here are the first six cases of both the original and cleaned data set.  It can be seen that a few of the values displayed here for the original data set are not contained within the cleaned set.
+
+
+
+
 
 
