@@ -47,3 +47,18 @@ hist(covidData2$life_expectancy, data = covidData2)
 ```
 
 Here are the distributions for life expectancy for the two data frames.  Both distributions are generally skewed left and peak at the 75-80 category.  There is a bit of variation in the cleaned data set with the 60-65 range being high by comparison, but overall these distributions are similar enough.
+
+```{r}
+hist(covidData$pop_density, breaks = 20, data = covidData)
+hist(covidData2$pop_density, breaks = 20, data = covidData2)
+
+hist(covidData$median_age, data = covidData)
+hist(covidData2$median_age, data = covidData2)
+
+hist(covidData$pct_over_65, data = covidData)
+hist(covidData2$pct_over_65, data = covidData2)
+```
+
+Here are the distributions of some of the other variables we deemed to be relevant.  Again, the distributions appear to be similar between the two data frames. 
+
+
