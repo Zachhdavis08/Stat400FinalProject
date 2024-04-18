@@ -13,10 +13,13 @@ covid death
 
 ```{r}
 library(tidyverse)
+library(ggplot2)
+library(dplyr)
 ```
 
 ```{r}
 covidData <- read.csv("/Users/griffinconaway/Documents/covid_international2022.csv", header = TRUE, sep = ",")
+covidData <- read.csv("C://Users//zachh//Data//covid_international.csv")
 ```
 
 (^temporary file directory)
@@ -71,7 +74,66 @@ head(covidData2)
 Here are the first six cases of both the original and cleaned data set.  It can be seen that a few of the values displayed here for the original data set are not contained within the cleaned set.
 
 
+Multi-Level EDA?:
 
+```{r}
+continent_summary <- covidData2 %>%
+  group_by(continent) %>%
+  summarise(
+    total_deaths = sum(deaths, na.rm = TRUE),
+    avg_cases = mean(cases, na.rm = TRUE),
+    avg_pop_density = mean(pop_density, na.rm = TRUE),
+    avg_life_expectancy = mean(life_expectancy, na.rm = TRUE),
+    .groups = 'drop'
+  )
 
+print(continent_summary)
+```
 
+Here is a small summary of continents summarized by total covid deaths, covid cases, population density, and life expectancy. Our data comes with multiple levels, simply as countries are all nested in a continent, which contributes to our levels for our EDA.
 
+```{r}
+ggplot(covidData2, aes(x = continent, y = deaths, fill = continent)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "COVID-19 Deaths Distribution by Continent")
+```
+
+This visualization is a side-by-side boxplot showing Covid19 deaths per country grouped by continent. As we can see, there are many outliers in each continent, most likely representing the countries with the highest populations and population density per continent. The major outlier here appears to be the United States, as it has over 1,000,000 covid deaths, with the second closest point being in South America, most likely Brazil. Also, we can see that the countries grouped in South America have the highest median, as well as the highest IQR compared to the other 5 continents.
+
+```{r}
+ggplot(covidData2, aes(x = cases, y = deaths)) +
+  geom_point(aes(color = continent)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal() +
+  labs(title = "COVID-19 Deaths vs Cases by Continent")
+```
+
+This scatterplot shows the relationship between Covid-19 deaths (y-axis) and the predictor total cases (x-axis) when countries are grouped into their respective continents. The scatterplot is also fitted with a best fit line that shows an approximate slope based on the data we have. As we can see there is a general positive relationship between deaths and cases, as cases increase, so does the amount of deaths. There does not appear to be any unusual points, however, we can see a North American point, the United States, has a lot more cases and deaths than the rest of the countries. We also can see the majority of points are towards the bottom right of the graph, meaning they have smaller totals in both cases and deaths. We can use this to show how population size could have a significant effect on the amount of covid deaths.
+
+```{r}
+ggplot(covidData2, aes(x = gdp_pc, y = deaths)) +
+  geom_point(aes(color = hospital_beds_per_thousand)) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_gradient(low = "blue", high = "red") +
+  theme_minimal() +
+  labs(title = "Deaths vs GDP per Capita (Colored by Hospital Beds per Thousand)")
+```
+
+This scatterplot shows the relationship of GDP weighted by population with the amount of deaths from covid. Futhermore, we can hospital beds per thousand related to the gdp predictor and the deaths. The fitted line is fit using a linear model of the predictors and the response.
+
+```{r}
+grouped_analysis <- covidData2 %>%
+  group_by(continent) %>%
+  summarise(
+    median_deaths = median(deaths, na.rm = TRUE),
+    correlation = cor(cases, deaths, use = "complete.obs"),
+    avg_responsegrade = mean(as.numeric(response), na.rm = TRUE),
+    .groups = 'drop'
+  )
+
+# View results
+print(grouped_analysis)
+```
+
+This analysis shows countries grouped by continent, along with their median deaths, average response grade, as well as the correlation between the two. This helps us have insight on how each continent reacted to the virus on average, and how their deaths correlate to the response grade.
