@@ -10,3 +10,26 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 covid death
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+covidData <- read.csv("/Users/griffinconaway/Documents/covid_international2022.csv", header = TRUE, sep = ",")
+```
+
+(^temporary file directory)
+
+```{r}
+covidData2 <- covidData %>% 
+  drop_na(cases, deaths, population, pop_density, median_age, life_expectancy, pct_over_65, gdp_pc, pct_extreme_poverty)
+```
+
+This chunk of code is meant to remove all cases that have an N/A value in the columns specified.  I included the response variable "deaths" as well as the predictor variables we deemed to be most relevant, which were as follows:
+
+Population, population density, median age, life expectancy, percentage of the population over the age of 65, national gdp weighted by population, and percentage of the population living in extreme poverty.  
+
+It is important that we remove the cases that have an N/A value for one of these variables, because these are the variables we are most likely to use in our models.  At the same time, we need to make sure that we don't include too many variables because we don't want to reduce our number of cases too far to the point where our data frame is too small.  
+
+By removing the cases that had an N/A in the above columns, we went from 244 cases to 124 cases.  To ensure that we still have a representative distribution of countries, I wanted to compare to the distribution of some of the variables between the original and cleaned data frames.
