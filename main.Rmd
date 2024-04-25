@@ -15,6 +15,7 @@ covid death
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
+library(readr)
 ```
 
 ```{r}
@@ -22,41 +23,41 @@ covidData <- read.csv("/Users/griffinconaway/Documents/covid_international2022.c
 covidData <- read.csv("C://Users//zachh//Data//covid_international.csv")
 ```
 
-(^temporary file directory)
+(\^temporary file directory)
 
 ```{r}
 covidData2 <- covidData %>% 
   drop_na(cases, deaths, population, pop_density, median_age, life_expectancy, pct_over_65, gdp_pc, pct_extreme_poverty, bci_bci)
 ```
 
-This chunk of code is meant to remove all cases that have an N/A value in the columns specified.  I included the response variable "deaths" as well as the predictor variables we deemed to be most relevant, which were as follows:
+This chunk of code is meant to remove all cases that have an N/A value in the columns specified. I included the response variable "deaths" as well as the predictor variables we deemed to be most relevant, which were as follows:
 
-Population, population density, median age, life expectancy, percentage of the population over the age of 65, national gdp weighted by population, and percentage of the population living in extreme poverty.  
+Population, population density, median age, life expectancy, percentage of the population over the age of 65, national gdp weighted by population, and percentage of the population living in extreme poverty.
 
 I also added the bci_bci variable solely to get rid of the case "World" so that it would not influence our data.
 
-It is important that we remove the cases that have an N/A value for one of these variables, because these are the variables we are most likely to use in our models.  At the same time, we need to make sure that we don't include too many variables because we don't want to reduce our number of cases too far to the point where our data frame is too small. 
+It is important that we remove the cases that have an N/A value for one of these variables, because these are the variables we are most likely to use in our models. At the same time, we need to make sure that we don't include too many variables because we don't want to reduce our number of cases too far to the point where our data frame is too small.
 
 ```{r}
 glimpse(covidData)
 glimpse(covidData2)
 ```
 
-As shown above, by removing the cases that had an N/A in the above columns, we went from 244 cases to 122 cases.  To ensure that we still have a representative distribution of countries, I wanted to compare to the distribution of some of the variables between the original and cleaned data frames.
+As shown above, by removing the cases that had an N/A in the above columns, we went from 244 cases to 122 cases. To ensure that we still have a representative distribution of countries, I wanted to compare to the distribution of some of the variables between the original and cleaned data frames.
 
 ```{r}
 covidData %>% count(continent)
 covidData2 %>% count(continent)
 ```
 
-The cleaned data frame still contains a reasonable distribution of countries among the different continents.  Africa, Europe and Asia remain the most represented continents although there are still cases in every group.  Oceania going from 23 to 5 cases is a sizeable jump, however these are the countries likely to be the outliers in the data anyway.  We will now check some other distributions among the two data sets.
+The cleaned data frame still contains a reasonable distribution of countries among the different continents. Africa, Europe and Asia remain the most represented continents although there are still cases in every group. Oceania going from 23 to 5 cases is a sizeable jump, however these are the countries likely to be the outliers in the data anyway. We will now check some other distributions among the two data sets.
 
 ```{r}
 hist(covidData$life_expectancy, data = covidData)
 hist(covidData2$life_expectancy, data = covidData2)
 ```
 
-Here are the distributions for life expectancy for the two data frames.  Both distributions are generally skewed left and peak at the 75-80 category.  There is a bit of variation in the cleaned data set with the 60-65 range being high by comparison, but overall these distributions are similar enough.
+Here are the distributions for life expectancy for the two data frames. Both distributions are generally skewed left and peak at the 75-80 category. There is a bit of variation in the cleaned data set with the 60-65 range being high by comparison, but overall these distributions are similar enough.
 
 ```{r}
 hist(covidData$pop_density, breaks = 20, data = covidData)
@@ -69,16 +70,39 @@ hist(covidData$pct_over_65, data = covidData)
 hist(covidData2$pct_over_65, data = covidData2)
 ```
 
-Here are the distributions of some of the other variables we deemed to be relevant.  Again, the distributions appear to be similar between the two data frames.  Based on this information, we will move ahead with the cleaned data set.   
+Here are the distributions of some of the other variables we deemed to be relevant. Again, the distributions appear to be similar between the two data frames. Based on this information, we will move ahead with the cleaned data set.
 
 ```{r}
 head(covidData)
 head(covidData2)
 ```
 
-Here are the first six cases of both the original and cleaned data set.  It can be seen that a few of the values displayed here for the original data set are not contained within the cleaned set.  One such value that appears above is "Africa".  In the original data set, all of the continents were included as well as other subsets of the global population such as "High Income".  These were among the 13 cases in the original data set that were not prescribed to a continent themselves.  In the revised data set, all of these cases have been removed.
+Here are the first six cases of both the original and cleaned data set. It can be seen that a few of the values displayed here for the original data set are not contained within the cleaned set. One such value that appears above is "Africa". In the original data set, all of the continents were included as well as other subsets of the global population such as "High Income". These were among the 13 cases in the original data set that were not prescribed to a continent themselves. In the revised data set, all of these cases have been removed.
 
-Now that we have the data set that we want, we want to look at the relationship between our response variable "deaths" and other singular explanatory variables.  As a test for our data set, we will look at the relationship between "cases" (covid cases) and "deaths" by case (country).  
+Now that we have the data set that we want, we want to look at the relationship between our response variable "deaths" and other singular explanatory variables. As a test for our data set, we will look at the relationship between "cases" (covid cases) and "deaths" by case (country).
+
+```{r}
+ggplot(covidData2, aes(x = cases, y = deaths)) +
+  geom_point(alpha = 0.5) +
+  labs(title = "Cases vs Deaths",
+       x = "Cases",
+       y = "Deaths")
+
+ggplot(covidData2, aes(x = population, y = deaths)) +
+  geom_point(alpha = 0.5) +
+  labs(title = "Population vs Deaths",
+       x = "Population",
+       y = "Deaths")
+
+ggplot(covidData2, aes(x = pct_extreme_poverty, y = deaths)) +
+  geom_point(alpha = 0.5) +
+  labs(title = "Extreme Poverty vs Deaths",
+       x = "Extreme Poverty Percentage",
+       y = "Deaths")
+
+
+```
+
 
 ```{r}
 covidModel <- lm(deaths ~ cases, data = covidData2)
@@ -87,12 +111,9 @@ summary(covidModel)
 
 Key Statistics:
 
-p-value: 2.2e-16
-F-statistic: 647.2
-Multiple R-squared: 0.8436
+p-value: 2.2e-16 F-statistic: 647.2 Multiple R-squared: 0.8436
 
-The first two values here show us that there is a statistically significant relationship between "cases" and "deaths" as there should be.  With a Multiple R-squared of 0.8436, we also know that about 84.36% of the variance in the "deaths" variable is explained by the "cases" variable.  
-
+The first two values here show us that there is a statistically significant relationship between "cases" and "deaths" as there should be. With a Multiple R-squared of 0.8436, we also know that about 84.36% of the variance in the "deaths" variable is explained by the "cases" variable.
 
 Multi-Level EDA?:
 
@@ -138,6 +159,7 @@ ggplot(covidData2, aes(x = gdp_pc, y = deaths)) +
   scale_color_gradient(low = "blue", high = "red") +
   theme_minimal() +
   labs(title = "Deaths vs GDP per Capita (Colored by Hospital Beds per Thousand)")
+
 ```
 
 This scatterplot shows the relationship of GDP weighted by population with the amount of deaths from covid. Futhermore, we can hospital beds per thousand related to the gdp predictor and the deaths. The fitted line is fit using a linear model of the predictors and the response.
@@ -157,3 +179,26 @@ print(grouped_analysis)
 ```
 
 This analysis shows countries grouped by continent, along with their median deaths, average response grade, as well as the correlation between the two. This helps us have insight on how each continent reacted to the virus on average, and how their deaths correlate to the response grade.
+
+```{r}
+ggplot(covidData2, aes(x = cases, y = deaths)) +
+  geom_point(alpha = 0.5) +
+  labs(title = "Cases vs Deaths",
+       x = "Cases",
+       y = "Deaths")
+
+ggplot(covidData2, aes(x = population, y = deaths)) +
+  geom_point(alpha = 0.5) +
+  labs(title = "Population vs Deaths",
+       x = "Population",
+       y = "Deaths")
+
+ggplot(covidData2, aes(x = pct_extreme_poverty, y = deaths)) +
+  geom_point(alpha = 0.5) +
+  labs(title = "Extreme Poverty vs Deaths",
+       x = "Extreme Poverty Percentage",
+       y = "Deaths")
+
+
+```
+
