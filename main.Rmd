@@ -2,123 +2,244 @@
 title: "Stat 400 Final Project"
 author: "Zachary Davis"
 date: "2024-04-05"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-covid death
+
+```{r}
+covidData <- read.csv("/Users/griffinconaway/Documents/covid_international2022.csv", header = TRUE, sep = ",")
+covidData_og <- read.csv("C://Users//zachh//Data//covid_international.csv")
+covidData_og <- read.csv("covid_international2022.csv")
+
+```
 
 ```{r}
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
-library(readr)
+library(lme4)
+library(leaps)
+library(caret)
+library(pROC)
+library(missForest)
+library(randomForest)
+library(car)
 ```
 
 ```{r}
-covidData <- read.csv("/Users/griffinconaway/Documents/covid_international2022.csv", header = TRUE, sep = ",")
-covidData <- read.csv("C://Users//zachh//Data//covid_international.csv")
+#covidData <- read.csv("/Users/griffinconaway/Documents/covid_international2022.csv", header = TRUE, sep = ",")
+#covidData <- read.csv("C://Users//zachh//Data//covid_international.csv")
+```
+```{r}
+covidData_og <- read.csv("covid_international2022.csv")
 ```
 
-(\^temporary file directory)
+```{r}
+covidData <- covidData_og %>% 
+  select(deaths, continent, cases, pop_density, life_expectancy, median_age, pct_over_65, gdp_pc, pct_extreme_poverty, hospital_beds_per_thousand, response, pct_pop_access_handwash, fh_fog, fh_pr, gpi_gpi, voh_gti, wbgi_gee, wdi_acel, wdi_export, wdi_import, country) 
+```
+
+```{r}
+covidData$continent <- as.factor(covidData$continent)
+covidData$pop_density <- as.numeric(covidData$pop_density)
+covidData$life_expectancy  <- as.numeric(covidData$life_expectancy )
+covidData$median_age  <- as.numeric(covidData$median_age )
+covidData$pct_over_65  <- as.numeric(covidData$pct_over_65 )
+covidData$gdp_pc <- as.numeric(covidData$gdp_pc)
+covidData$pct_extreme_poverty  <- as.numeric(covidData$pct_extreme_poverty )
+covidData$hospital_beds_per_thousand <- as.numeric(covidData$hospital_beds_per_thousand)
+covidData$response  <- as.numeric(covidData$response)
+covidData$pct_pop_access_handwash   <- as.numeric(covidData$pct_pop_access_handwash )
+covidData$fh_fog <- as.numeric(covidData$fh_fog )
+covidData$ fh_pr  <- as.numeric(covidData$ fh_pr)
+covidData$pct_gpi_gpi <- as.numeric(covidData$gpi_gpi)
+covidData$voh_gti <- as.numeric(covidData$voh_gti)
+covidData$ wbgi_gee  <- as.numeric(covidData$ wbgi_gee)
+covidData$wdi_acel  <- as.numeric(covidData$wdi_acel)
+covidData$wdi_export   <- as.numeric(covidData$wdi_export)
+covidData$wdi_import  <- as.numeric(covidData$wdi_import )
+```
+
+```{r}
+# make a aggregate global peace index variable for each continent
+covidData[ , 'cont_gpi'] = NA
+
+for (index in 1:244){
+  if(covidData$continent[index] =="Africa"){
+    covidData$cont_gpi[index]=2.190773
+  } else if (covidData$continent[index]=="Asia"){
+  covidData$cont_gpi[index]=2.151813	
+  } else if (covidData$continent[index]=="North America") {
+  covidData$cont_gpi[index]=2.151857	
+  } else if (covidData$continent[index]=="Europe") {
+  covidData$cont_gpi[index]=1.939500
+  } else if (covidData$continent[index]=="Oceania") {
+  covidData$cont_gpi[index]=1.593667
+  } else if (covidData$continent[index] =="South America") {
+    covidData$cont_gpi[index]=2.202000	
+  }
+  else {covidData$cont_gpi[index]="NA"}
+}    
+    
+```
+
+
+```{r echo=FALSE}
+#make global peace index (gpi_gpi) a continent variable --> aggregate over countries 
+covidData_og %>% 
+  group_by(continent) %>%
+  summarize(av_gpi= mean(gpi_gpi,na.rm=TRUE))
+
+```
+
+
+````{r}
+covidData$cont_gpi  <- as.numeric(covidData$cont_gpi)
+```
+
+
+
+```{r}
+# Form training and testing sets 
+ set.seed(112)
+ training_data <- covidData %>%
+  slice_sample(prop = 0.8)
+
+training_results <- training_data
+
+# Form testing set ----
+testing_data <- covidData %>%
+  filter(!(country %in% training_data$country))
+```
+
+```{r}
+testing_data <- testing_data %>%
+  select(-country)
+training_data <- training_data %>%
+  select(-country)
+```
+
+
+```{r}
+covidData_test <-missForest(testing_data)
+testing_data <- covidData_test$ximp
+covidData_training <-missForest(training_data)
+training_data<- covidData_training$ximp 
+```
+
+
+```{r}
+#Data Cleaning
+testing_data <- testing_data %>%
+  mutate(prop_death = deaths / cases, 
+         Greater_US_cat = (prop_death > 0.01104343)) 
+training_data <- training_data %>%
+  mutate(prop_death = deaths / cases, 
+         Greater_US_cat = (prop_death > 0.01104343)) 
+```
+
+
+```{r}
+for (index in 1:49) {
+ if(testing_data$Greater_US_cat[index] == "TRUE"){
+ testing_data$Greater_US[index]=1  } 
+ else {covidData$Greater_US[index]=0}
+}
+for (index in 1:195) {
+ if(training_data$Greater_US[index] == "TRUE"){
+ training_data$Greater_US[index]=1  } 
+ else {covidData$Greater_US[index]=0}
+}
+
+
+covidData$Greater_US <- as.factor(covidData$Greater_US)
+```
+
+```{r}
+training_data$deaths <- as.integer(training_data$deaths)
+training_data$cases <- as.integer(training_data$cases)
+testing_data$deaths <- as.integer(testing_data$deaths)
+testing_data$cases <- as.integer(testing_data$cases)
+training_data$Greater_US <- as.factor(training_data$Greater_US)
+testing_data$Greater_US <- as.factor(testing_data$Greater_US)
+```
 
 ```{r}
 covidData2 <- covidData %>% 
-  drop_na(cases, deaths, population, pop_density, median_age, life_expectancy, pct_over_65, gdp_pc, pct_extreme_poverty, bci_bci)
+  select(deaths, continent, cases, pop_density, life_expectancy, median_age, pct_over_65, gdp_pc, pct_extreme_poverty, hospital_beds_per_thousand, response, pct_pop_access_handwash, fh_fog, fh_pr, gpi_gpi, voh_gti, wbgi_gee, wdi_acel, wdi_export, wdi_import) 
 ```
 
-This chunk of code is meant to remove all cases that have an N/A value in the columns specified. I included the response variable "deaths" as well as the predictor variables we deemed to be most relevant, which were as follows:
+This chunk of code is meant to remove all cases that have an N/A value in the columns specified.  I included the response variable "deaths" as well as the predictor variables we deemed to be most relevant, which were as follows:
 
-Population, population density, median age, life expectancy, percentage of the population over the age of 65, national gdp weighted by population, and percentage of the population living in extreme poverty.
+Population, population density, median age, life expectancy, percentage of the population over the age of 65, national gdp weighted by population, and percentage of the population living in extreme poverty.  
 
 I also added the bci_bci variable solely to get rid of the case "World" so that it would not influence our data.
 
-It is important that we remove the cases that have an N/A value for one of these variables, because these are the variables we are most likely to use in our models. At the same time, we need to make sure that we don't include too many variables because we don't want to reduce our number of cases too far to the point where our data frame is too small.
+It is important that we remove the cases that have an N/A value for one of these variables, because these are the variables we are most likely to use in our models.  At the same time, we need to make sure that we don't include too many variables because we don't want to reduce our number of cases too far to the point where our data frame is too small.
+
+
+
+Recombination and EDA:
 
 ```{r}
-glimpse(covidData)
-glimpse(covidData2)
+#Recombines Training and Testing Split after data imputation for EDA
+combined_data <- rbind(training_data, testing_data)
+
 ```
 
-As shown above, by removing the cases that had an N/A in the above columns, we went from 244 cases to 122 cases. To ensure that we still have a representative distribution of countries, I wanted to compare to the distribution of some of the variables between the original and cleaned data frames.
 
 ```{r}
-covidData %>% count(continent)
-covidData2 %>% count(continent)
+#Creates a glimpse of the columns of the recombined data set, shows the column values without any missing values.
+glimpse(combined_data)
 ```
 
-The cleaned data frame still contains a reasonable distribution of countries among the different continents. Africa, Europe and Asia remain the most represented continents although there are still cases in every group. Oceania going from 23 to 5 cases is a sizeable jump, however these are the countries likely to be the outliers in the data anyway. We will now check some other distributions among the two data sets.
 
 ```{r}
-hist(covidData$life_expectancy, data = covidData)
-hist(covidData2$life_expectancy, data = covidData2)
+#Shows the overall count of countries grouped by continent
+combined_data %>% count(continent)
 ```
 
-Here are the distributions for life expectancy for the two data frames. Both distributions are generally skewed left and peak at the 75-80 category. There is a bit of variation in the cleaned data set with the 60-65 range being high by comparison, but overall these distributions are similar enough.
 
 ```{r}
-hist(covidData$pop_density, breaks = 20, data = covidData)
-hist(covidData2$pop_density, breaks = 20, data = covidData2)
+#Creates frequency histograms of various variables.
+hist(combined_data$life_expectancy, data = combined_data)
 
-hist(covidData$median_age, data = covidData)
-hist(covidData2$median_age, data = covidData2)
+hist(combined_data$pop_density, breaks = 20, data = combined_data)
 
-hist(covidData$pct_over_65, data = covidData)
-hist(covidData2$pct_over_65, data = covidData2)
+hist(combined_data$median_age, data = combined_data)
+
+hist(combined_data$pct_over_65, data = combined_data)
 ```
 
-Here are the distributions of some of the other variables we deemed to be relevant. Again, the distributions appear to be similar between the two data frames. Based on this information, we will move ahead with the cleaned data set.
 
 ```{r}
-head(covidData)
-head(covidData2)
-```
-
-Here are the first six cases of both the original and cleaned data set. It can be seen that a few of the values displayed here for the original data set are not contained within the cleaned set. One such value that appears above is "Africa". In the original data set, all of the continents were included as well as other subsets of the global population such as "High Income". These were among the 13 cases in the original data set that were not prescribed to a continent themselves. In the revised data set, all of these cases have been removed.
-
-Now that we have the data set that we want, we want to look at the relationship between our response variable "deaths" and other singular explanatory variables. As a test for our data set, we will look at the relationship between "cases" (covid cases) and "deaths" by case (country).
-
-```{r}
-ggplot(covidData2, aes(x = cases, y = deaths)) +
+#Creates scatterplots of several possible predictoes against death totals
+ggplot(combined_data, aes(x = cases, y = deaths)) +
   geom_point(alpha = 0.5) +
   labs(title = "Cases vs Deaths",
        x = "Cases",
        y = "Deaths")
 
-ggplot(covidData2, aes(x = population, y = deaths)) +
+ggplot(combined_data, aes(x = pop_density, y = deaths)) +
   geom_point(alpha = 0.5) +
-  labs(title = "Population vs Deaths",
-       x = "Population",
+  labs(title = "Population Density vs Deaths",
+       x = "Population Density",
        y = "Deaths")
 
-ggplot(covidData2, aes(x = pct_extreme_poverty, y = deaths)) +
+ggplot(combined_data, aes(x = pct_extreme_poverty, y = deaths)) +
   geom_point(alpha = 0.5) +
   labs(title = "Extreme Poverty vs Deaths",
        x = "Extreme Poverty Percentage",
        y = "Deaths")
-
-
 ```
 
 
 ```{r}
-covidModel <- lm(deaths ~ cases, data = covidData2)
-summary(covidModel)
-```
-
-Key Statistics:
-
-p-value: 2.2e-16 F-statistic: 647.2 Multiple R-squared: 0.8436
-
-The first two values here show us that there is a statistically significant relationship between "cases" and "deaths" as there should be. With a Multiple R-squared of 0.8436, we also know that about 84.36% of the variance in the "deaths" variable is explained by the "cases" variable.
-
-Multi-Level EDA?:
-
-```{r}
-continent_summary <- covidData2 %>%
+continent_summary <- combined_data %>%
   group_by(continent) %>%
   summarise(
     total_deaths = sum(deaths, na.rm = TRUE),
@@ -134,7 +255,7 @@ print(continent_summary)
 Here is a small summary of continents summarized by total covid deaths, covid cases, population density, and life expectancy. Our data comes with multiple levels, simply as countries are all nested in a continent, which contributes to our levels for our EDA.
 
 ```{r}
-ggplot(covidData2, aes(x = continent, y = deaths, fill = continent)) +
+ggplot(combined_data, aes(x = continent, y = deaths, fill = continent)) +
   geom_boxplot() +
   theme_minimal() +
   labs(title = "COVID-19 Deaths Distribution by Continent")
@@ -143,7 +264,7 @@ ggplot(covidData2, aes(x = continent, y = deaths, fill = continent)) +
 This visualization is a side-by-side boxplot showing Covid19 deaths per country grouped by continent. As we can see, there are many outliers in each continent, most likely representing the countries with the highest populations and population density per continent. The major outlier here appears to be the United States, as it has over 1,000,000 covid deaths, with the second closest point being in South America, most likely Brazil. Also, we can see that the countries grouped in South America have the highest median, as well as the highest IQR compared to the other 5 continents.
 
 ```{r}
-ggplot(covidData2, aes(x = cases, y = deaths)) +
+ggplot(combined_data, aes(x = cases, y = deaths)) +
   geom_point(aes(color = continent)) +
   geom_smooth(method = "lm", se = FALSE) +
   theme_minimal() +
@@ -153,19 +274,18 @@ ggplot(covidData2, aes(x = cases, y = deaths)) +
 This scatterplot shows the relationship between Covid-19 deaths (y-axis) and the predictor total cases (x-axis) when countries are grouped into their respective continents. The scatterplot is also fitted with a best fit line that shows an approximate slope based on the data we have. As we can see there is a general positive relationship between deaths and cases, as cases increase, so does the amount of deaths. There does not appear to be any unusual points, however, we can see a North American point, the United States, has a lot more cases and deaths than the rest of the countries. We also can see the majority of points are towards the bottom right of the graph, meaning they have smaller totals in both cases and deaths. We can use this to show how population size could have a significant effect on the amount of covid deaths.
 
 ```{r}
-ggplot(covidData2, aes(x = gdp_pc, y = deaths)) +
+ggplot(combined_data, aes(x = gdp_pc, y = deaths)) +
   geom_point(aes(color = hospital_beds_per_thousand)) +
   geom_smooth(method = "lm", se = FALSE) +
   scale_color_gradient(low = "blue", high = "red") +
   theme_minimal() +
   labs(title = "Deaths vs GDP per Capita (Colored by Hospital Beds per Thousand)")
-
 ```
 
-This scatterplot shows the relationship of GDP weighted by population with the amount of deaths from covid. Futhermore, we can hospital beds per thousand related to the gdp predictor and the deaths. The fitted line is fit using a linear model of the predictors and the response.
+This scatterplot shows the relationship of GDP weighted by population with the amount of deaths from COVID. Furthermore, we can hospital beds per thousand related to the gdp predictor and the deaths. The fitted line is fit using a linear model of the predictors and the response.
 
 ```{r}
-grouped_analysis <- covidData2 %>%
+grouped_analysis <- combined_data %>%
   group_by(continent) %>%
   summarise(
     median_deaths = median(deaths, na.rm = TRUE),
@@ -180,25 +300,407 @@ print(grouped_analysis)
 
 This analysis shows countries grouped by continent, along with their median deaths, average response grade, as well as the correlation between the two. This helps us have insight on how each continent reacted to the virus on average, and how their deaths correlate to the response grade.
 
+
+
+
+
+
+
+
+
+Now that we have the data set that we want, we want to look at the relationship between our response variable "deaths" and other singular explanatory variables.  As a test for our data set, we will look at the relationship between "cases" (covid cases) and "deaths" by case (country).  
+
 ```{r}
-ggplot(covidData2, aes(x = cases, y = deaths)) +
-  geom_point(alpha = 0.5) +
-  labs(title = "Cases vs Deaths",
-       x = "Cases",
-       y = "Deaths")
+covidModel <- lm(deaths ~ cases, data = covidData2)
+summary(covidModel)
+```
 
-ggplot(covidData2, aes(x = population, y = deaths)) +
-  geom_point(alpha = 0.5) +
-  labs(title = "Population vs Deaths",
-       x = "Population",
-       y = "Deaths")
+Key Statistics:
 
-ggplot(covidData2, aes(x = pct_extreme_poverty, y = deaths)) +
-  geom_point(alpha = 0.5) +
-  labs(title = "Extreme Poverty vs Deaths",
-       x = "Extreme Poverty Percentage",
-       y = "Deaths")
+p-value: 2.2e-16
+F-statistic: 647.2
+Multiple R-squared: 0.8436
+
+The first two values here show us that there is a statistically significant relationship between "cases" and "deaths" as there should be.  With a Multiple R-squared of 0.8436, we also know that about 84.36% of the variance in the "deaths" variable is explained by the "cases" variable. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Logistic Model Building
+
+```{r}
+# check assumptions
+
 
 
 ```
+
+
+
+```{r}
+# MIGHT TAKE THIS OUT --> IF NOT CHANGE VARIABLES TO THIS DATA SET
+# check assumptions
+
+#Empirical Logit Plots
+#Create New Variables
+# phat <- with(covid_log, (deaths+.5)/(cases+1))
+# rrHale.df$elogit <- log(phat/(1-phat))
+# 
+# ## Plots
+# logdis <- ggplot(rrHale.df, aes(x=distance, y=elogit))+
+#     geom_point(shape=1) +    # Use hollow circles
+#     geom_smooth(method=lm,   # Add linear regression line
+#                 se=FALSE) + # Don't add shaded confidence region
+#   xlab("distance") + ylab("empirical logits") + 
+#   labs(title="Hale Empirical logits by distance")
+# logblack <- ggplot(rrHale.df, aes(x=pctBlack, y=elogit))+
+#     geom_point(shape=1) +    # Use hollow circles
+#     geom_smooth(method=lm,   # Add linear regression line
+#                 se=FALSE) +   # Don't add shaded confidence region
+#   xlab("percent Black residents") + ylab("empirical logits") + 
+#   labs(title="Hale Empirical logits by percent Black residents") +
+#   geom_text(aes(label=Greensboro), nudge_x = 7.5, nudge_y = -.5)
+# 
+# grid.arrange(logdis, logblack ,ncol=1)
+```
+
+```{r}
+# do some other predictor selection technique instead so you can have some visualizations
+backward_model <- glm(Greater_US ~ continent + pop_density + life_expectancy + median_age + pct_over_65 + gdp_pc + pct_extreme_poverty + hospital_beds_per_thousand + response + pct_pop_access_handwash + fh_fog + fh_pr + voh_gti + wbgi_gee + wdi_acel + wdi_export + wdi_import, family=binomial, data = training_data)
+# Backward stepwise regression
+backward_model <- step(backward_model, direction = "backward")
+```
+
+```{r}
+# # fit model 
+# model_1 <- glm(cbind(deaths, cases-deaths) ~ continent + pop_density + life_expectancy + 
+#     median_age + pct_over_65 + pct_extreme_poverty + hospital_beds_per_thousand + 
+#     response + pct_pop_access_handwash + fh_fog + fh_pr +  
+#     voh_gti + wbgi_gee + wdi_acel + wdi_export + wdi_import + 
+#     pop_density:life_expectancy, family=binomial, data = training_data)
+# summary(model_1)
+```
+
+```{r}
+# fit model 
+model_1 <- glm(Greater_US ~ continent + pop_density + life_expectancy + 
+    median_age + pct_over_65 + pct_extreme_poverty + hospital_beds_per_thousand + 
+    response + pct_pop_access_handwash + fh_fog + fh_pr +  
+    voh_gti + wbgi_gee + wdi_acel + wdi_export + wdi_import, family=binomial, data = training_data)
+summary(model_1)
+```
+
+
+
+```{r}
+model_2 <- glm(Greater_US ~ wdi_export + fh_pr + pop_density + fh_fog + continent + gdp_pc + response, family=binomial, data = training_data)
+summary(model_2)
+```
+```{r}
+anova(model_2, model_1, test = "Chisq")
+```
+
+```{r}
+# model validation with pearson residuals goodness of fit test (code in lecture 12)
+X2 <- sum(residuals(model_2, type = "pearson")^2)
+X2
+1-pchisq(X2, df = model_1$df.residual)
+
+
+```
+```{r}
+vif(model_2)
+```
+
+
+```{r}
+model_5 <- glm(Greater_US ~ wdi_export + fh_fog + pop_density  + continent + gdp_pc + response, family=binomial, data = training_data)
+summary(model_5)
+```
+
+
+```{r}
+vif(model_5)
+```
+
+```{r}
+# model validation with pearson residuals goodness of fit test (code in lecture 12)
+X2 <- sum(residuals(model_5, type = "pearson")^2)
+X2
+1-pchisq(X2, df = model_2$df.residual)
+```
+
+
+
+
+```{r}
+model_3 <- glm(Greater_US ~ response, family=binomial, data = training_data)
+summary(model_3)
+```
+
+```{r}
+model_4 <- glm(Greater_US ~  gdp_pc + response, family=binomial, data = training_data)
+summary(model_4)
+```
+
+
+
+```{r}
+# # overdispersion 
+# 1 - pchisq(9616.2,df=30)
+```
+A deviance of 9616.2 with 30 degrees of freedom is high, so we will check the dispersion parameter. 
+
+```{r}
+# sigma2 <- sum( residuals(model_1, type='pearson') ^2 ) / 30
+# sigma2
+```
+This is much higher than 1, so overdispersion is present. 
+
+
+```{r}
+# fit overdispersion
+# quasi_model <- glm(Greater_US ~ continent + pop_density + life_expectancy + 
+#     median_age + pct_over_65 + pct_extreme_poverty + hospital_beds_per_thousand + 
+#     response + pct_pop_access_handwash + fh_fog + fh_pr +  
+#     voh_gti + wbgi_gee + wdi_acel + wdi_export + wdi_import + 
+#     pop_density:life_expectancy, family=quasibinomial, data = training_data)
+# summary(quasi_model)
+```
+
+```{r}
+# reduced_quasi <- glm(Greater_US ~ continent + fh_fog + pct_pop_access_handwash + fh_pr, family=quasibinomial, data = training_data)
+# anova(reduced_quasi, quasi_model, test = "Chisq")
+```
+
+# visualization = for each variable make a scatterplot with that predictor against the response
+
+```{r}
+testing_data %>%
+  ggplot(aes(x=fh_fog, y= deaths/cases)) +
+  geom_point() +
+  geom_smooth(aes(x=fh_fog, y= deaths/cases), method="lm", se=FALSE) + 
+  ylim(0,0.2)
+
+```
+```{r}
+testing_data %>%
+  ggplot(aes(x=wdi_export, y= deaths/cases)) +
+  geom_point() +
+  geom_smooth(aes(x=wdi_export, y= deaths/cases), method="lm", se=FALSE) +
+  ylim(0,0.2)
+
+```
+
+```{r}
+testing_data %>%
+  ggplot(aes(x=pop_density, y= deaths/cases)) +
+  geom_point() + 
+  geom_smooth(aes(x=pop_density, y= deaths/cases), method="lm", se=FALSE) +
+  ylim(0,0.2)
+```
+```{r}
+testing_data %>%
+  ggplot(aes(x=response, y= deaths/cases)) +
+  geom_point() + 
+  geom_smooth(aes(x=response, y= deaths/cases), method="lm", se=FALSE) +
+  ylim(0,0.2)
+```
+
+```{r}
+testing_data %>%
+  ggplot(aes(x=gdp_pc, y= deaths/cases)) +
+  geom_point() + 
+  geom_smooth(aes(x=gdp_pc, y= deaths/cases), method="lm", se=FALSE) +
+  ylim(0,0.1)
+```
+
+
+
+
+```{r}
+pred_prob <- predict(model_5, newdata = testing_data, type = "response")
+testing_data <-
+  testing_data %>%
+  mutate(predProbaility = pred_prob)
+  
+#Generate predicted values of y (call them pred_surv)
+threshold  <- 0.01104343
+pred_surv <- ifelse(pred_prob > threshold, "TRUE", "FALSE")
+
+#Add predictions to dataset
+testing_data <- 
+  testing_data %>%
+  mutate(Prediction = pred_surv)
+
+```
+
+
+```{r}
+confusionMatrix(data = as.factor(pred_surv), 
+                      reference = as.factor(testing_data$Greater_US_cat),
+                positive = "TRUE")
+```
+
+```{r}
+#Using roc from pROC library
+test_roc = roc(response = testing_data$Greater_US,
+               predictor = pred_prob, 
+               plot = TRUE, print.auc = TRUE, 
+               legacy.axes=TRUE)
+```
+
+
+
+
+# Random Forest
+
+```{r}
+training_data$Greater_US_cat <- as.factor(training_data$Greater_US_cat)
+
+midfieldForest1 <- randomForest(
+  formula = Greater_US_cat ~ continent + pop_density + life_expectancy + median_age + pct_over_65 + gdp_pc + pct_extreme_poverty + hospital_beds_per_thousand + response + pct_pop_access_handwash + fh_fog + fh_pr + voh_gti + wbgi_gee + wdi_acel + wdi_export + wdi_import,
+  data = training_data,
+  ntree = 1000,
+  mtry = 3,
+  importance = TRUE,
+  do.trace = FALSE, 
+  keep.forest = TRUE
+)
+```
+
+```{r}
+# Create a line plot of OOB Error and Misclassification Rates ----
+
+
+as.data.frame(midfieldForest1$err.rate) %>%
+  mutate(
+    Tree = row_number(),
+    .before = OOB
+  ) %>%
+  pivot_longer(
+    cols = !Tree,
+    names_to = "Type",
+    values_to = "Error"
+  ) %>%
+  ggplot(
+    mapping = aes(
+      x = Tree,
+      y = Error,
+      color = Type,
+      linetype = Type
+    )
+) +
+  geom_path() +
+  theme_bw() +
+  scale_linetype_manual(values = c("dashed", "dotted", "solid"))
+
+```
+
+```{r}
+# Attribute Importance Plots ----
+
+varImpPlot(
+  x = midfieldForest1,
+  main = "Classifying Covid Death Status"
+)
+```
+
+```{r}
+forest_model <- glm(Greater_US ~ wbgi_gee + life_expectancy + gdp_pc, family=binomial, data = training_data)
+summary(forest_model)
+```
+
+```{r}
+pred_prob <- predict(forest_model, newdata = testing_data, type = "response")
+testing_data <-
+  testing_data %>%
+  mutate(predProbaility = pred_prob)
+  
+#Generate predicted values of y (call them pred_surv)
+threshold  <- 0.01104343
+pred_surv <- ifelse(pred_prob > threshold, "TRUE", "FALSE")
+
+#Add predictions to dataset
+testing_data <- 
+  testing_data %>%
+  mutate(Prediction = pred_surv)
+
+```
+
+
+```{r}
+confusionMatrix(data = as.factor(pred_surv), 
+                      reference = as.factor(testing_data$Greater_US_cat),
+                positive = "TRUE")
+```
+
+
+
+```{r}
+#Using roc from pROC library
+test_roc = roc(response = testing_data$Greater_US,
+               predictor = pred_prob, 
+               plot = TRUE, print.auc = TRUE, 
+               legacy.axes=TRUE)
+```
+
+# Multilevel Model 
+
+Level 1: Country
+  Variables: Whatever is determined as most significant from log reg
+Level 2: Continent
+  Variables: cont_gpi
+
+```{r}
+multilevel_full <- lmer(prop_death ~ gdp_pc + cont_gpi+ (1 + gdp_pc| continent), REML = TRUE, data = training_data)
+summary(multilevel_full)
+
+```
+```{r}
+multilevel_reduced <- lmer(prop_death ~ cont_gpi + (gdp_pc| continent), REML = TRUE, data = training_data)
+summary(multilevel_reduced)
+```
+```{r}
+multilevel_reduced2 <- lmer(prop_death ~ cont_gpi + (1| continent), REML = TRUE, data = training_data)
+summary(multilevel_reduced)
+```
+
+
+```{r}
+multilevel_intonly <- lmer(prop_death ~ 1+ (1| continent), REML = TRUE, data = training_data)
+summary(multilevel_intonly)
+```
+```{r}
+# calculate intra class correlation
+int_corr <- (7.452e-13/(7.452e-13+6.275e+03))*100
+int_corr
+```
+
+```{r}
+BIC(multilevel_full)
+BIC(multilevel_reduced)
+BIC(multilevel_reduced2)
+BIC(multilevel_intonly)
+```
+
+# draw trend line for each group (continent) scatterplot for each variable !!!
+
+```{r}
+ggplot(testing_data, aes(x=response, y=prop_death)) +
+  geom_point(aes(color=continent)) +
+  geom_smooth(aes(color=continent), method="lm", se=FALSE) +
+  ylim(0,0.1)
+```
+
 
